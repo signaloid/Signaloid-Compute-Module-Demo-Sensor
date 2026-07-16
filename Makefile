@@ -54,10 +54,10 @@ UTILITIES_DIR := $(ROOT_DIR)/submodules/C0-microSD-utilities
 # Build directory
 BUILD_DIR := signaloid-soc-application
 
-REPO_ID_FILE := $(ROOT_DIR)/.project/repo_id
+REPO_ID_FILE := $(ROOT_DIR)/.repo_id
 REPO_ID=$(shell cat $(REPO_ID_FILE))
 
-BUILD_ID_FILE := $(ROOT_DIR)/.project/build_id
+BUILD_ID_FILE := $(ROOT_DIR)/.build_id
 BUILD_ID=$(shell cat $(BUILD_ID_FILE))
 
 BINARY_FILENAME := main.bin

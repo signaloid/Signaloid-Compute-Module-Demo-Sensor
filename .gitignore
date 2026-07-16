@@ -6,6 +6,8 @@
 build/
 builds/
 *.bin
+.repo_id
+.build_id
 
 # Python
 .env
