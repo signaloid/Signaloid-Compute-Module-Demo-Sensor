@@ -1,0 +1,13 @@
+.DS_Store
+.vscode
+.project
+
+# Build artifacts
+build/
+builds/
+*.bin
+
+# Python
+.env
+.venv
+__pycache__

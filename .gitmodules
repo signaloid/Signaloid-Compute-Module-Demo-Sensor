@@ -1,0 +1,48 @@
+[submodule "submodules/Signaloid-Demo-Sensors-FLIRAx5ConversionRoutines"]
+	path = submodules/Signaloid-Demo-Sensors-FLIRAx5ConversionRoutines
+	url = ../../signaloid/Signaloid-Demo-Sensors-FLIRAx5ConversionRoutines.git
+	branch = main
+[submodule "submodules/Signaloid-Demo-Sensors-FlussoFLS110ConversionRoutines"]
+	path = submodules/Signaloid-Demo-Sensors-FlussoFLS110ConversionRoutines
+	url = ../../signaloid/Signaloid-Demo-Sensors-FlussoFLS110ConversionRoutines.git
+	branch = main
+[submodule "submodules/Signaloid-Demo-Sensors-NXPMPX4100AConversionRoutines"]
+	path = submodules/Signaloid-Demo-Sensors-NXPMPX4100AConversionRoutines
+	url = ../../signaloid/Signaloid-Demo-Sensors-NXPMPX4100AConversionRoutines.git
+	branch = main
+[submodule "submodules/Signaloid-Demo-Sensors-NXPMPXx6250AConversionRoutines"]
+	path = submodules/Signaloid-Demo-Sensors-NXPMPXx6250AConversionRoutines
+	url = ../../signaloid/Signaloid-Demo-Sensors-NXPMPXx6250AConversionRoutines.git
+	branch = main
+[submodule "submodules/Signaloid-Demo-Sensors-SensirionSDP3xAnalogConversionRoutines"]
+	path = submodules/Signaloid-Demo-Sensors-SensirionSDP3xAnalogConversionRoutines
+	url = ../../signaloid/Signaloid-Demo-Sensors-SensirionSDP3xAnalogConversionRoutines.git
+	branch = main
+[submodule "submodules/Signaloid-Demo-Sensors-SensirionSDP8xxAnalogConversionRoutines"]
+	path = submodules/Signaloid-Demo-Sensors-SensirionSDP8xxAnalogConversionRoutines
+	url = ../../signaloid/Signaloid-Demo-Sensors-SensirionSDP8xxAnalogConversionRoutines.git
+	branch = main
+[submodule "submodules/Signaloid-Demo-Sensors-SensirionSFM3100ConversionRoutines"]
+	path = submodules/Signaloid-Demo-Sensors-SensirionSFM3100ConversionRoutines
+	url = ../../signaloid/Signaloid-Demo-Sensors-SensirionSFM3100ConversionRoutines.git
+	branch = main
+[submodule "submodules/Signaloid-Demo-Sensors-SensirionSHT3xARPConversionRoutines"]
+	path = submodules/Signaloid-Demo-Sensors-SensirionSHT3xARPConversionRoutines
+	url = ../../signaloid/Signaloid-Demo-Sensors-SensirionSHT3xARPConversionRoutines.git
+	branch = main
+[submodule "submodules/Signaloid-Demo-Sensors-SensirionSHT4xIAnalogConversionRoutines"]
+	path = submodules/Signaloid-Demo-Sensors-SensirionSHT4xIAnalogConversionRoutines
+	url = ../../signaloid/Signaloid-Demo-Sensors-SensirionSHT4xIAnalogConversionRoutines.git
+	branch = main
+[submodule "submodules/Signaloid-Demo-Sensors-TexasInstrumentsTMAG5253ConversionRoutines"]
+	path = submodules/Signaloid-Demo-Sensors-TexasInstrumentsTMAG5253ConversionRoutines
+	url = ../../signaloid/Signaloid-Demo-Sensors-TexasInstrumentsTMAG5253ConversionRoutines.git
+	branch = main
+[submodule "submodules/Signaloid-Demo-Sensors-TexasInstrumentsTMCS112xConversionRoutines"]
+	path = submodules/Signaloid-Demo-Sensors-TexasInstrumentsTMCS112xConversionRoutines
+	url = ../../signaloid/Signaloid-Demo-Sensors-TexasInstrumentsTMCS112xConversionRoutines.git
+	branch = main
+[submodule "submodules/C0-microSD-utilities"]
+	path = submodules/C0-microSD-utilities
+	url = ../../signaloid/C0-microSD-utilities.git
+	branch = main
