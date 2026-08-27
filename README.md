@@ -1,125 +1,268 @@
-# Signaloid Compute Module Sensor Demo
+# Signaloid Compute Module Demo Sensor
 
-A demonstration application for the Signaloid C0-microSD and C0-microSD+ compute modules. It runs sensor conversion routines with end-to-end uncertainty quantification directly on the compute module, then plots the resulting output distributions on the host.
+This is a demo application for the Signaloid compute modules. It runs sensor
+conversion routines with end-to-end uncertainty quantification directly on the
+compute module, then plots the resulting output distributions on the host.
 
-Each conversion routine takes sensor readings that carry measurement uncertainty (for example, an ADC voltage known only to within a tolerance) and computes the calibrated physical quantity as a full probability distribution rather than a single number. The computation runs on Signaloid's UxHw technology, which tracks uncertainty through arithmetic without Monte Carlo sampling.
-
-## What this repository contains
-
-This demo has three parts:
-
-1. **Compute module firmware** ([signaloid-soc-application/](signaloid-soc-application/)). A C application that runs on the Signaloid C0 compute module. It waits for a command, reads input distributions from a shared buffer, runs the selected sensor conversion routine, and writes the output distributions back.
-2. **Host application** ([python-host-application/](python-host-application/)). A Python program that packs input distributions, issues commands to the module over its block-device interface, reads the results back, and plots them.
-3. **Sensor conversion routines** ([submodules/](submodules/)). Several sensor calibration kernels, each maintained in its own repository and included into the firmware at build time.
+Each conversion routine takes sensor readings that carry measurement uncertainty
+(for example, an ADC voltage known only to within a tolerance) and computes the
+calibrated physical quantity as a full probability distribution rather than a
+single number. The computation runs on Signaloid's UxHw technology, which tracks
+uncertainty through deterministic arithmetic, without Monte Carlo sampling.
 
 ```mermaid
-flowchart LR
-    A[Host application<br/>Python] -->|input distributions<br/>+ command| B[Compute module<br/>C0-microSD / C0-microSD+]
-    B -->|output distributions| A
-    A --> C[Plots]
-    subgraph Firmware
-        B --> D[Selected conversion<br/>routine kernel]
+flowchart TB
+    Host[Host application<br/>Python]
+    CM[Signaloid Compute Module]
+    
+    Host -->|Command, Input distributions| CM
+
+    CM -->|Status, Output distributions| Host
+
+    Host --> Plots[Plots]
+    
+    subgraph FW[Firmware]
+	CM <--> Kernels
+        
+        subgraph Kernels[Conversion routine kernels]
+            Kernel_1[Kernel 1] ~~~ Kernel_2[Kernel 2] ~~~ Dots[...] ~~~ Kernel_N[Kernel N]
+        end
     end
+
+    style FW fill:none
+    style Kernels fill:none
+    style Dots fill:none, stroke: none
 ```
 
 ## Supported sensors
 
-| Command name | Sensor | Measurement | Inputs |
-| --- | --- | --- | --- |
-| `FLIRAx5` | FLIR Ax5 | Thermal camera temperature | Counts |
-| `FlussoFLS110` | Flusso FLS110 | Mass flow, differential pressure | Hxfer, Tflow, T0, Pflow, P0 |
-| `NXPMPX4100A` | NXP MPX4100A | Absolute pressure | VsensorADC, VsupplyADC |
-| `NXPMPXx6250A` | NXP MPXx6250A | Absolute pressure | VsensorADC, VsupplyADC |
-| `SensirionSDP3x` | Sensirion SDP3x | Differential pressure | Aout, Vdd |
-| `SensirionSDP8xx` | Sensirion SDP8xx | Differential pressure | Aout, Vdd |
-| `SensirionSFM3100` | Sensirion SFM3100 | Gas flow | Uv |
-| `SensirionSHT3xARP` | Sensirion SHT3x-ARP | Relative humidity, temperature | Vrh, Vt, Vsupply |
-| `SensirionSHT4xI` | Sensirion SHT4xI | Relative humidity, temperature | Vrh, Vt, Vsupply |
-| `TexasInstrumentsTMAG5253` | TI TMAG5253 | Magnetic flux density | Vout, Vcc |
-| `TexasInstrumentsTMCS112x` | TI TMCS112x | Current | Vout, Vref |
+| Command name               | Sensor              | Measurement                      | Inputs                      |
+| -------------------------- | ------------------- | -------------------------------- | --------------------------- |
+| `FLIRAx5`                  | FLIR Ax5            | Thermal camera temperature       | Counts                      |
+| `FlussoFLS110`             | Flusso FLS110       | Mass flow, differential pressure | Hxfer, Tflow, T0, Pflow, P0 |
+| `NXPMPX4100A`              | NXP MPX4100A        | Absolute pressure                | VsensorADC, VsupplyADC      |
+| `NXPMPXx6250A`             | NXP MPXx6250A       | Absolute pressure                | VsensorADC, VsupplyADC      |
+| `SensirionSDP3x`           | Sensirion SDP3x     | Differential pressure            | Aout, Vdd                   |
+| `SensirionSDP8xx`          | Sensirion SDP8xx    | Differential pressure            | Aout, Vdd                   |
+| `SensirionSFM3100`         | Sensirion SFM3100   | Gas flow                         | Uv                          |
+| `SensirionSHT3xARP`        | Sensirion SHT3x-ARP | Relative humidity, temperature   | Vrh, Vt, Vsupply            |
+| `SensirionSHT4xI`          | Sensirion SHT4xI    | Relative humidity, temperature   | Vrh, Vt, Vsupply            |
+| `TexasInstrumentsTMAG5253` | TI TMAG5253         | Magnetic flux density            | Vout, Vcc                   |
+| `TexasInstrumentsTMCS112x` | TI TMCS112x         | Current                          | Vout, Vref                  |
 
-Each routine is documented in detail in its own submodule under [submodules/](submodules/).
+Each routine is documented in detail in its own submodule under
+[submodules/](submodules/).
 
-## Prerequisites
+## Compatibility
 
-### Hardware
+This demo currently supports:
 
-- A Signaloid **C0-microSD** or **C0-microSD+** compute module connected to your host.
-- A card reader or a Signaloid SD-Dev carrier board.
+- **Signaloid C0-microSD**
+- **Signaloid C0-microSD+**
+- **Signaloid C0-SD**
 
-### Software
+## Repository layout
 
-- Python 3.10 or newer.
-- `make`.
-- A [Signaloid account](https://get.signaloid.io) and the [Signaloid CLI](https://docs.signaloid.io/docs/api/signaloid-cli/intro/), used to build the firmware in the Signaloid Cloud Developer Platform.
-
-The firmware is compiled in the Signaloid Cloud Developer Platform, not locally. The build targets connect this repository to your account, trigger a cloud build, and download the resulting binary.
+- `signaloid-soc-application/`: A C application that runs on the Signaloid
+  compute module.
+    - `main.c`: Main application logic. Waits for a command, reads input
+      distributions, runs the selected operation, and writes the output
+      distributions.
+    - `config.mk`: Build configuration, select sources to build.
+    - `conversionRoutines/`: Per-sensor kernels included in the firmware.
+- `python-host-application/`: A Python application that runs on the host machine
+  to interact with the Signaloid compute modules.
+    - `host_application.py`: Main application logic. Packs input distributions,
+      issues commands, reads and plots the results.
+    - `app_helpers.py`: Set of frequently used functions for app building.
+    - `run-all-demos.sh`: Standalone script to run every demo.
+- `Makefile`: Build, flash, and run targets
+- `submodules/`: Project submodules. Signaloid Compute Module Utilities, sensor
+  calibration kernels.
 
 ## Getting started
 
-### 1. Clone with submodules
+### 1. Prerequisites
 
-The conversion routines and the C0-microSD utilities are Git submodules, so clone recursively:
+##### Hardware:
+
+- A supported Signaloid compute module (see [compatibility](#compatibility)) and
+  its device path on your host.
+- Optionally, a SD-card reader, or the Signaloid SD-Dev carrier board to connect
+  the Signaloid compute module to your host machine.
+
+##### Software:
+
+- A [Signaloid account](https://get.signaloid.io).
+- A GitHub account connected to your Signaloid account, as shown in the
+  [GitHub Login guide](https://docs.signaloid.io/docs/platform/user-interface/repositories/github-login/),
+  so you can build the compute module firmware on the
+  [Signaloid Cloud Developer Platform](https://signaloid.io). You can also fork
+  this demo repository to your own GitHub account, push your changes, and build
+  your own version of the firmware.
+- A Signaloid API key for authentication.
+  [Create one here](https://signaloid.io/settings/api).
+- The [Signaloid CLI](https://docs.signaloid.io/docs/api/signaloid-cli/intro/)
+  installed and authenticated as shown in its
+  [installation](https://docs.signaloid.io/docs/api/signaloid-cli/installation/)
+  and
+  [authentication](https://docs.signaloid.io/docs/api/signaloid-cli/authentication/)
+  documentation.
+- Python 3.10 or later for the host application and the flashing toolkit.
+- `make`, for running the targets on the top-level `Makefile`.
+- Root privileges (`sudo`) for raw block-device access to the compute modules.
+
+### 2. Clone this repository recursively
+
+Clone this repository recursively to get all its submodules:
 
 ```sh
-git clone --recursive <repository-url>
+git clone --recursive https://github.com/signaloid/Signaloid-Compute-Module-Demo-Sensor.git
 ```
 
-If you already cloned without `--recursive`, pull the submodules in with:
+If you cloned without `--recursive`, pull the submodules in with:
 
 ```sh
 git submodule update --init --recursive
 ```
 
-### 2. Select your compute module
-
-Set `DEVICE_TYPE` and `DEVICE` for every `make` command, or edit the defaults at the top of the [Makefile](Makefile).
-
-- `DEVICE_TYPE` is either `SIGNALOID_C0_MICROSD_PLUS` (default) or `SIGNALOID_C0_MICROSD`.
-- `DEVICE` is the path to the block device (for example `/dev/disk4` on macOS or `/dev/sda` on Linux). Find it with `diskutil list` on macOS or `lsblk` on Linux.
+To update all submodules (useful for your own projects):
 
 ```sh
-export DEVICE_TYPE=SIGNALOID_C0_MICROSD_PLUS
-export DEVICE=/dev/disk4
+git pull --recurse-submodules
+git submodule update --remote --recursive
 ```
 
-### 3. Build and flash the firmware
+### 3. Configure the top-level `Makefile`
 
-The default `make` target runs the full connect, build, and download sequence. Flash the downloaded binary to the module:
+1. Configure the `DEVICE` variable. This is the path to the block device your
+   compute module is located (e.g. `/dev/disk4` on macOS, `/dev/sda` on Linux).
+   Use `diskutil list` on macOS, or `lsblk` on Linux to find it.
+2. Configure the `DEVICE_TYPE` variable for your compute module. This is the
+   compute module hardware variant you are using. The supported options are:
+    - `SIGNALOID_C0_MICROSD`
+    - `SIGNALOID_C0_MICROSD_PLUS`
+    - `SIGNALOID_C0_SD`.
+3. Configure the `CORE_ID` variable matching your compute module type. This
+   controls the precision and correlation tracking for your application.
+   Default: `C0-*-N` core.
+
+> [!WARNING]
+>
+> Selecting a wrong block device might **corrupt a real storage device**.
+>
+> Make sure you have correctly configured the `DEVICE` and `DEVICE_TYPE`
+> variables in the `Makefile` as described above.
+
+### 4. Build the Compute Module application
+
+The top-level `Makefile` compiles the Signaloid SoC application on the Signaloid
+Cloud Compute Engine using the
+[Signaloid CLI](https://docs.signaloid.io/docs/api/signaloid-cli/intro/). It
+uses the CLI to connect this repository, start a build in the Signaloid Cloud
+Compute Engine, and download the resulting `main.bin` firmware. The build inputs
+(source files and include paths) are defined in
+`signaloid-soc-application/config.mk`.
+
+The default `make` target connects the repository (first run only), starts a
+cloud build, waits for it to finish, and downloads the firmware into
+`signaloid-soc-application/<build-id>.main.bin`. To start a build run:
 
 ```sh
-make          # connect repo, build in the cloud, download main.bin
-make flash    # flash main.bin to the compute module
+make
 ```
 
-### 4. Run the demo
 
-The `run-all` target creates a Python virtual environment, installs the host application dependencies, and runs every sensor with its default inputs:
+### 5. Flash the Compute Module firmware
+
+Flash the downloaded binary to the module. This flashes the
+`<build-id>.main.bin` (it builds and downloads it first, if needed).
+
+```sh
+make flash
+```
+
+> [!NOTE]
+>
+> If you are targeting a Signaloid C0-microSD, you will be asked to power cycle
+> the device to switch modes (`Bootloader`, `Signaloid SoC`). The device will
+> have finished flashing when the green LED is solid.
+
+### 6. Run the demo
+
+The `run-all` target of the top-level `Makefile` creates a Python virtual
+environment, installs the host application dependencies, and runs the example
+commands:
 
 ```sh
 make run-all
 ```
 
-To run a single sensor, see [Running the host application](#running-the-host-application) below.
+To run a single sensor, see [Example command](#example-command) below.
 
-## The input value format
+## Host application
 
-Inputs are passed as a value with an uncertainty in the last significant digit, written as `X.Y(Z)`. The host application converts this into a uniform distribution.
+The host application interacts with the Signaloid compute modules. It prepares
+the input data, sends them to the compute module, issues a command, waits for
+the command to finish, and finally fetches the results, printing and plotting
+the distributions.
 
-For example, `2.5(2)` means the value 2.5 with an uncertainty of 2 in the last digit, which is the uniform distribution over `[2.3, 2.7]`. The value `422500(2500)` is the uniform distribution over `[420000, 425000]`.
+The host application is designed to parse a number of input arguments, each
+specifying a uniform distribution, represented in the
+[concise form of uncertainty notation](https://physics.nist.gov/cgi-bin/cuu/Info/Constants/definitions.html),
+i.e., `X.Y(Z)`.
 
-## Running the host application
+For example:
 
-`make run-all` is a convenience wrapper. To run a single conversion, call the host application directly. Use the virtual environment created by the Makefile, or your own Python environment with the dependencies from [requirements.txt](python-host-application/requirements.txt) installed.
+- `2.5(2)`: means the value `2.5` with an uncertainty of `2` in the last digit,
+  which is the uniform distribution over `[2.3, 2.7]`.
+- `2.50(2)`: is the uniform distribution over `[2.48, 2.52]`.
+- `422500(2500)`: is the uniform distribution over `[420000, 425000]`.
+
+The distributional input arguments must be quoted in a linux shell.
+
+### Dependencies
+
+To run the Python-based host application you first need to install its
+dependencies. To do that:
+
+1. Create a virtual environment: `python3 -m venv .venv`
+2. Activate the virtual environment: `source .venv/bin/activate`
+3. Navigate to `./python-host-application`
+4. Install the requirements: `pip install -r requirements.txt`
+
+You can automate this step by running `make venv` from the top-level `Makefile`.
+
+### Example command
+
+> [!IMPORTANT]
+>
+> Root privileges are required for raw access to the block device.
+>
+> We invoke the virtual environment's interpreter directly (`.venv/bin/python3`)
+> because a plain `sudo python3` would use the system Python without the
+> packages installed in the virtual environment.
+
+> [!NOTE]
+>
+> Following examples assume a C0-microSD device located at `/dev/disk4`.
+
+Basic command format:
 
 ```sh
-sudo python3 python-host-application/host_application.py <device-path> --variant <variant> <SensorName> <inputs...>
+sudo .venv/bin/python3 python-host-application/host_application.py \
+	--device-path <device-path> \
+	--variant <variant> \
+	<SensorName> <inputs...>
 ```
 
-Example, running the SHT3x-ARP humidity and temperature conversion:
+Run the SHT3x-ARP humidity and temperature conversion:
 
 ```sh
-sudo python3 python-host-application/host_application.py /dev/disk4 --variant C0-microSD+ SensirionSHT3xARP "2.5(2)" "2.5(2)" "5.1(3)"
+sudo .venv/bin/python3 python-host-application/host_application.py \
+	--device-path /dev/disk4 \
+	--variant C0-microSD \
+	SensirionSHT3xARP "2.5(2)" "2.5(2)" "5.1(3)"
 ```
 
 The default inputs for every sensor are:
@@ -138,85 +281,153 @@ TexasInstrumentsTMAG5253    "2.7(1)" "3.3(1)"
 TexasInstrumentsTMCS112x    "3.3(1)" "2.5(1)"
 ```
 
-`sudo` is required because the host communicates with the module through raw block reads and writes.
+To run all the example commands use the `make run-all` target of the top-level
+`Makefile`.
 
-See [python-host-application/README.md](python-host-application/README.md) for the full command-line reference, benchmarking options, and output format.
+### Usage
 
-## Configuration
+```sh
+usage: host_application.py [-h] -d DEVICE_PATH [-v {C0-microSD,C0-microSD+,C0-SD}] [-r] [-s] [--skip-printing-results] [--skip-plotting-results] [--benchmark] [--iterations ITERATIONS] command ...
+
+Host application for the Signaloid C0 compute modules sensor conversion routine demo
+
+positional arguments:
+  command               {
+                                FLIRAx5,
+                                FlussoFLS110,
+                                NXPMPX4100A,
+                                NXPMPXx6250A,
+                                SensirionSDP3x,
+                                SensirionSDP8xx,
+                                SensirionSFM3100,
+                                SensirionSHT3xARP,
+                                SensirionSHT4xI,
+                                SensirionSLS1500,
+                                TexasInstrumentsTMAG5253,
+                                TexasInstrumentsTMAG618x,
+                                TexasInstrumentsTMCS112x
+                        }
+
+options:
+  -h, --help            show this help message and exit
+  -d, --device-path DEVICE_PATH
+                        Path of the C0 compute module device (e.g., /dev/disk4)
+  -v, --variant {C0-microSD,C0-microSD+,C0-SD}
+                        Hardware variant (default: C0-microSD+)
+  -r, --reset-on-launch
+                        Reset the core on launch. Ignored on the C0-microSD.
+  -s, --stop-on-exit    Stop the core on exit. Ignored on the C0-microSD.
+  --skip-printing-results
+                        Skip printing the resulting Ux-Strings. Useful when benchmarking.
+  --skip-plotting-results
+                        Skip plotting the resulting Ux-Strings. Useful when benchmarking.
+  --benchmark           Enable benchmarking mode. Measures and reports the per-iteration
+                        device execution time from command issue until status=Done.
+  --iterations ITERATIONS
+                        Number of times the conversion kernel is repeated on the device
+                        for a single command. The value is encoded as (iterations - 1)
+                        in the upper 16 bits of the command register. Default: 20
+```
+
+## Signaloid SoC application
+
+The Signaloid SoC application runs on the core of the Signaloid compute module's
+SoC. This is where the arbitrary probability distribution arithmetic is
+processed.
+
+The compute module continuously polls the command register to start processing a
+new command. When a new command arrives, it parses the input buffer for the
+needed input data of that specific command, it runs the computation, and finally
+packs the results to the output buffer, signaling a successful computation
+finish on the status register.
+
+### How it works
+
+The host and the compute module communicate through four regions of the module's
+block-device interface: a command register, an input buffer, an output buffer,
+and a status register.
+
+**Command register.** A single 32-bit value. The lower 16 bits select the
+conversion routine (see the command ids in
+[main.c](signaloid-soc-application/main.c)). The upper 16 bits hold the
+benchmark iteration count, biased by one so that a value of 0 still runs a
+single iteration.
+
+**Input buffer.** The host packs each input variable as a pair of
+single-precision floats giving the low and high bounds of a uniform
+distribution. The firmware reconstructs each input with `UxHwFloatUniformDist`
+in [main.c](signaloid-soc-application/main.c).
+
+**Output buffer.** The firmware packs the resulting distributions using
+`UxHwFloatDistributionToByteArray` into the output buffer. The host reads the
+output buffer, parses the results, plots the distributions, and prints their
+particle values.
+
+**Status register.** The firmware sets a status register through the run:
+`WaitingForCommand`, `Calculating`, `Done`, or `InvalidCommand`. The host polls
+this register to know when a result is ready.
 
 ### Selecting which sensors to include
 
-The firmware includes all conversion routines by default. To reduce binary size or build only the sensors you need, edit the `INCLUDE_<Sensor>` flags in [signaloid-soc-application/config.mk](signaloid-soc-application/config.mk). Set a flag to `0` to exclude a routine:
+The firmware includes all conversion routines by default. To reduce binary size
+or build only the sensors you need, edit the `INCLUDE_<Sensor>` flags in
+[signaloid-soc-application/config.mk](signaloid-soc-application/config.mk). Set
+a flag to `0` to exclude a routine:
 
 ```makefile
 INCLUDE_FLIRAx5 = 1
 INCLUDE_FlussoFLS110 = 0
 ```
 
-### Benchmark iterations
-
-The `ITERATIONS` variable controls how many times each conversion kernel runs on the device per command. This is used to measure per-iteration execution time. It defaults to 1.
-
-```sh
-make run-all ITERATIONS=100
-```
-
 ## Makefile targets
 
-| Target | Description |
-| --- | --- |
-| `make` | Connect the repository, build in the cloud, and download the firmware binary. |
-| `make connect` | Connect this repository to the Signaloid Cloud Developer Platform. |
-| `make update` | Updates this repository to the latest commit on the already connected repo on the Signaloid Cloud Developer Platform. |
-| `make build` | Trigger a cloud build and wait for it to complete. |
-| `make download` | Download the firmware binary. |
-| `make flash` | Flash the downloaded binary to the module (selects the correct flasher from `DEVICE_TYPE`). |
-| `make run-all` | Create the virtual environment and run every sensor with default inputs. |
-| `make start` / `make stop` / `make reset` | Start, stop, or reset the Signaloid SoC core (C0-microSD+). |
-| `make log` | Stream the device debug log. |
-| `make clean` | Remove the downloaded binary and build id. |
-| `make clean-all` | Also remove the repository id and cached builds. |
+| Target           | Description                                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `make`           | Connect the repository, build in the cloud, and download the firmware binary.                                         |
+| `make connect`   | Connect this repository to the Signaloid Cloud Developer Platform.                                                    |
+| `make update`    | Updates this repository to the latest commit on the already connected repo on the Signaloid Cloud Developer Platform. |
+| `make build`     | Trigger a cloud build and wait for it to complete.                                                                    |
+| `make download`  | Download the firmware binary.                                                                                         |
+| `make flash`     | Flash the downloaded binary to the module (selects the correct flasher from `DEVICE_TYPE`).                           |
+| `make run-all`   | Run every sensor with default inputs. Creates the needed Python virtual environment if needed.                        |
+| `make run-all`   | Run every sensor with default inputs in benchmark mode. Creates the needed Python virtual environment if needed.      |
+| `make start`     | Start the Signaloid SoC core (on supported compute modules).                                                          |
+| `make stop`      | Stop the Signaloid SoC core (on supported compute modules).                                                           |
+| `make reset`     | Reset the Signaloid SoC core (on supported compute modules).                                                          |
+| `make log`       | Stream the device debug log.                                                                                          |
+| `make venv`      | Create the virtual environment needed for running the host application.                                               |
+| `make clean`     | Remove the downloaded binary and build id.                                                                            |
+| `make clean-all` | Also remove the repository id and cached builds.                                                                      |
 
-## How it works
+### Benchmarking
 
-The host and the compute module communicate through three regions of the module's block-device interface: a command register, an input buffer, and an output buffer.
+The `ITERATIONS` variable controls how many times each conversion kernel runs on
+the device per command. This is used to measure per-iteration execution time. It
+defaults to 20.
 
-**Command register.** A single 32-bit value. The lower 16 bits select the conversion routine (see the command ids in [main.c](signaloid-soc-application/main.c#L79-L93)). The upper 16 bits hold the benchmark iteration count, biased by one so that a value of 0 still runs a single iteration.
-
-**Input buffer.** The host packs each input variable as a pair of single-precision floats giving the low and high bounds of a uniform distribution. The firmware reconstructs each input with `UxHwFloatUniformDist` in [main.c](signaloid-soc-application/main.c#L96-L106).
-
-**Output buffer.** The firmware serializes each output distribution using the Ux-Binary representation. The host reads the output buffer, parses the distribution, and plots it.
-
-The firmware sets a status register through the run: `WaitingForCommand`, `Calculating`, `Done`, or `InvalidCommand`. The host polls this register to know when a result is ready.
+```sh
+make bench-all ITERATIONS=100
+```
 
 ## Adding a new conversion routine
 
-1. Add the routine sources under `signaloid-soc-application/conversionRoutines/<Name>/` with a `kernel.c` and `kernel.h`, following the pattern of an existing routine.
-2. Add an `INCLUDE_<Name>` block to [config.mk](signaloid-soc-application/config.mk).
-3. Add the include guard, command id, and `case` handler in [main.c](signaloid-soc-application/main.c).
-4. Add a matching sensor class to [host_application.py](python-host-application/host_application.py) describing its input and output variables and default input ranges.
-
-## Repository layout
-
-```
-.
-├── Makefile                      Build, flash, and run targets
-├── signaloid-soc-application/    Compute module firmware (C)
-│   ├── main.c                    Command dispatch and buffer handling
-│   ├── config.mk                 Which sensors and sources to build
-│   └── conversionRoutines/       Per-sensor kernels included in the firmware
-├── python-host-application/      Host application (Python)
-│   ├── host_application.py       Sensor definitions, packing, plotting
-│   └── run-all-demos.sh          Standalone script to run every demo
-└── submodules/                   Conversion routine sources and C0-microSD utilities
-```
+1. Add the routine sources under
+   `signaloid-soc-application/conversionRoutines/<Name>/` with a `kernel.c` and
+   `kernel.h`, following the pattern of an existing routine.
+2. Add an `INCLUDE_<Name>` block to
+   [config.mk](signaloid-soc-application/config.mk).
+3. Add the include guard, command id, and `case` handler in
+   [main.c](signaloid-soc-application/main.c).
+4. Add a matching sensor class to
+   [host_application.py](python-host-application/host_application.py) describing
+   its input and output variables and default input ranges.
 
 ## Learn more
 
 - [Signaloid Cloud Developer Platform](https://signaloid.io)
-- [C0-microSD hardware](https://github.com/signaloid/C0-microSD-hardware)
-- [C0-microSD utilities](submodules/C0-microSD-utilities/README.md)
-- [Signaloid technology explainers](https://signaloid.com/technology-explainers)
+- [Signaloid Compute Modules Documentation](https://docs.signaloid.io/docs/compute-modules/)
+- [Signaloid Compute Module Utilities](submodules/Signaloid-Compute-Module-Utilities/README.md)
+- [Signaloid Technology Explainers](https://signaloid.com/technology-explainers)
 
 ## License
 
