@@ -19,8 +19,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
 run() {
-    echo "+ sudo python -u ./host_application.py ${DEVICE_PATH} --benchmark --iterations ${ITERATIONS} --variant ${VARIANT} $*"
-    sudo python -u ./host_application.py "${DEVICE_PATH}" --benchmark --iterations "${ITERATIONS}" --variant "${VARIANT}" "$@"
+	echo "+ sudo python -u ./host_application.py --device-path ${DEVICE_PATH} --benchmark --iterations ${ITERATIONS} --variant ${VARIANT} $*"
+	sudo python -u ./host_application.py --device-path "${DEVICE_PATH}" --benchmark --iterations "${ITERATIONS}" --variant "${VARIANT}" "$@"
 }
 
 run FLIRAx5 "30050(50)"
