@@ -18,8 +18,23 @@ SUDO                := $(shell OWNER=$$(stat -c '%U' $(DEVICE) 2>/dev/null || st
 # Can be overridden with `make DEVICE_TYPE=<your-device-type> target...`.
 DEVICE_TYPE         ?= SIGNALOID_C0_MICROSD_PLUS
 
-PYTHON              := python3 -u
-VENV_DIR            ?= $(ROOT_DIR)/.venv
+# Python interpreter used to create the virtual environment (3.10+).
+# Can be overridden with `make PYTHON=<your-python> target...`.
+PYTHON              ?= python3
+
+# Virtual environment to use, in order of priority:
+#     1. `make VENV_DIR=<path-to-venv> target...`
+#     2. an already-activated virtual environment ($VIRTUAL_ENV)
+#     3. $(ROOT_DIR)/.venv, created automatically when needed
+# Activation is not required: the venv's interpreter is called directly.
+INTERNAL_VENV       := $(ROOT_DIR)/.venv
+VENV_DIR            ?= $(or $(VIRTUAL_ENV),$(INTERNAL_VENV))
+VENV_PYTHON         := $(VENV_DIR)/bin/python3
+VENV_STAMP          := $(VENV_DIR)/.make-deps-stamp
+REQUIREMENTS        := $(ROOT_DIR)/python-host-application/requirements.txt
+
+CHECK_PYTHON         = $(1) -c 'import sys; sys.exit(sys.version_info < (3, 10))' \
+                       || { echo "Python 3.10+ required ($(1)). Set PYTHON=<your-recent-python-binary>"; exit 1; }
 
 SIGNALOID_CLI       ?= signaloid-cli
 
@@ -90,9 +105,9 @@ BINARY_FILENAME      = $(BUILD_ID).main.bin
 BINARY_FILE          = $(ROOT_DIR)/$(BUILD_DIR)/$(BINARY_FILENAME)
 
 # Toolkits
-MICROSD_TOOLKIT     := $(SUDO) $(PYTHON) $(UTILITIES_DIR)/C0_microSD_toolkit.py -t $(DEVICE)
-SD_TOOLKIT          := $(SUDO) $(PYTHON) $(UTILITIES_DIR)/C0_SD_toolkit.py $(DEVICE) --variant=$(DEVICE_VARIANT)
-C0_LOGGER           := $(SUDO) $(PYTHON) $(UTILITIES_DIR)/C0_debug_logger.py $(DEVICE) --variant=$(DEVICE_VARIANT)
+MICROSD_TOOLKIT     := $(SUDO) $(VENV_PYTHON) $(UTILITIES_DIR)/C0_microSD_toolkit.py -t $(DEVICE)
+SD_TOOLKIT          := $(SUDO) $(VENV_PYTHON) $(UTILITIES_DIR)/C0_SD_toolkit.py $(DEVICE) --variant=$(DEVICE_VARIANT)
+C0_LOGGER           := $(SUDO) $(VENV_PYTHON) $(UTILITIES_DIR)/C0_debug_logger.py $(DEVICE) --variant=$(DEVICE_VARIANT)
 
 # Enable Global "Exit on Error" for shell commands
 .SHELLFLAGS         := -ec
@@ -100,6 +115,11 @@ C0_LOGGER           := $(SUDO) $(PYTHON) $(UTILITIES_DIR)/C0_debug_logger.py $(D
 all: download
 
 print-%  : ; @echo $* = $($*)
+
+# Targets that need the Python environment. It is created, or its dependencies reinstalled, only when needed.
+VENV_TARGETS := flash-C0-microSD flash-C0-microSD-Plus flash-C0-SD switch start stop log log-once hex-dump uint-dump info run-all
+
+$(VENV_TARGETS): venv
 
 # Search for the repo in Signaloid Cloud Developer Platform.
 # If it doesn't exist, connect it.
@@ -214,20 +234,38 @@ info:
 	@echo "- Device info:"
 	$(SD_TOOLKIT) info
 
-# Create the virtual environment needed for running the host application
-venv $(VENV_DIR):
+# Create the virtual environment (if needed) and install the host
+# application dependencies (only when requirements.txt changes)
+venv: $(VENV_STAMP)
+
+$(VENV_PYTHON):
+	@$(call CHECK_PYTHON,$(PYTHON))
 	@echo "\n- Creating virtual environment in $(VENV_DIR)"
 	@$(PYTHON) -m venv $(VENV_DIR)
-	@$(VENV_DIR)/bin/pip install --upgrade pip
-	@$(VENV_DIR)/bin/pip install -r $(ROOT_DIR)/python-host-application/requirements.txt
+
+$(VENV_STAMP): $(REQUIREMENTS) | $(VENV_PYTHON)
+	@$(call CHECK_PYTHON,$(VENV_PYTHON))
+	@echo "\n- Installing Python dependencies in $(VENV_DIR)"
+	@$(VENV_PYTHON) -m pip install --upgrade pip
+	@$(VENV_PYTHON) -m pip install -r $(REQUIREMENTS)
+	@touch $@
+
+check-python:
+	@$(call CHECK_PYTHON,$(PYTHON))
+
+# Delete the virtual environment (only the project's own one)
+clean-venv:
+	@if [ -d "$(INTERNAL_VENV)" ]; then $(RM) -rf "$(INTERNAL_VENV)"; echo "venv deleted!"; else echo "Nothing to do"; fi
+
+.PHONY: venv check-python $(VENV_TARGETS)
 
 # Base command to run the host application
-RUN_CMD=$(SUDO) $(VENV_DIR)/bin/python3 -u $(ROOT_DIR)/python-host-application/host_application.py --device-path $(DEVICE) --variant $(DEVICE_VARIANT)
+RUN_CMD=$(SUDO) $(VENV_PYTHON) -u $(ROOT_DIR)/python-host-application/host_application.py --device-path $(DEVICE) --variant $(DEVICE_VARIANT)
 
 SELECTED_RUN_CMD?=$(RUN_CMD)
 
 # Run multiple host application commands. Useful for testing.
-run-all: $(VENV_DIR)
+run-all:
 	@echo "\n- Running the host application"
 	$(SELECTED_RUN_CMD) FLIRAx5 "30050(50)"
 	$(SELECTED_RUN_CMD) FlussoFLS110 "0.03(2)" "293.5(5)" "273.25(25)" "422500(2500)" "402500(2500)"
