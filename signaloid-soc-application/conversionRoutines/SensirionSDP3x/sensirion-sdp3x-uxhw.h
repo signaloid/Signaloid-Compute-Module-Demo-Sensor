@@ -1,0 +1,1 @@
+../../../submodules/Signaloid-Demo-Sensors-SensirionSDP3xAnalogConversionRoutines/src/sensirion-sdp3x-uxhw.h

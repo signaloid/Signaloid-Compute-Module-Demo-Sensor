@@ -4,10 +4,9 @@ MAKEFILE_DIR        := $(abspath $(dir $(MAKEFILE_PATH)))
 ROOT_DIR            := $(abspath $(MAKEFILE_DIR))
 
 # This is the path where your compute module is located (e.g. /dev/disk4).
+# On Windows (Git Bash), use the physical drive form (e.g. //./PhysicalDrive2).
 # Can be overridden with `make DEVICE=<your-device> target...`.
 DEVICE              ?= /dev/disk4
-
-SUDO                := $(shell OWNER=$$(stat -c '%U' $(DEVICE) 2>/dev/null || stat -f '%Su' $(DEVICE) 2>/dev/null); [ "$$OWNER" = "root" ] && echo "sudo" || echo "")
 
 # This is the compute module hardware variant you are using.
 # The supported options are:
@@ -18,10 +17,6 @@ SUDO                := $(shell OWNER=$$(stat -c '%U' $(DEVICE) 2>/dev/null || st
 # Can be overridden with `make DEVICE_TYPE=<your-device-type> target...`.
 DEVICE_TYPE         ?= SIGNALOID_C0_MICROSD_PLUS
 
-# Python interpreter used to create the virtual environment (3.10+).
-# Can be overridden with `make PYTHON=<your-python> target...`.
-PYTHON              ?= python3
-
 # Virtual environment to use, in order of priority:
 #     1. `make VENV_DIR=<path-to-venv> target...`
 #     2. an already-activated virtual environment ($VIRTUAL_ENV)
@@ -29,12 +24,27 @@ PYTHON              ?= python3
 # Activation is not required: the venv's interpreter is called directly.
 INTERNAL_VENV       := $(ROOT_DIR)/.venv
 VENV_DIR            ?= $(or $(VIRTUAL_ENV),$(INTERNAL_VENV))
-VENV_PYTHON         := $(VENV_DIR)/bin/python3
 VENV_STAMP          := $(VENV_DIR)/.make-deps-stamp
 REQUIREMENTS        := $(ROOT_DIR)/python-host-application/requirements.txt
 
-CHECK_PYTHON         = $(1) -c 'import sys; sys.exit(sys.version_info < (3, 10))' \
-                       || { echo "Python 3.10+ required ($(1)). Set PYTHON=<your-recent-python-binary>"; exit 1; }
+# PYTHON is the interpreter (3.10+) that creates the virtual environment and
+# runs the toolkits. Can be overridden with `make PYTHON=<your-python> target...`.
+ifeq ($(OS),Windows_NT)
+        # Git Bash: `python3` is the Microsoft Store stub, the venv keeps its
+        # Python in `Scripts/`, and there is no sudo (use an administrator shell).
+        SUDO                            :=
+        PYTHON                          ?= py -3 -u
+        VENV_PYTHON                     := $(VENV_DIR)/Scripts/python.exe
+else
+        SUDO                            := $(shell OWNER=$$(stat -c '%U' $(DEVICE) 2>/dev/null || stat -f '%Su' $(DEVICE) 2>/dev/null); [ "$$OWNER" = "root" ] && echo "sudo" || echo "")
+        PYTHON                          ?= python3
+        VENV_PYTHON                     := $(VENV_DIR)/bin/python3
+endif
+
+CHECK_PYTHON         = $(1) -c '' \
+                       || { echo "Python not found or not runnable ($(1)). Set PYTHON=<your-python-3.10+-binary>"; exit 1; }; \
+                       $(1) -c 'import sys; sys.exit(sys.version_info < (3, 10))' \
+                       || { echo "Python 3.10+ required, but $(1) is older. Set PYTHON=<your-python-3.10+-binary>"; exit 1; }
 
 SIGNALOID_CLI       ?= signaloid-cli
 
@@ -105,9 +115,9 @@ BINARY_FILENAME      = $(BUILD_ID).main.bin
 BINARY_FILE          = $(ROOT_DIR)/$(BUILD_DIR)/$(BINARY_FILENAME)
 
 # Toolkits
-MICROSD_TOOLKIT     := $(SUDO) $(VENV_PYTHON) $(UTILITIES_DIR)/C0_microSD_toolkit.py -t $(DEVICE)
-SD_TOOLKIT          := $(SUDO) $(VENV_PYTHON) $(UTILITIES_DIR)/C0_SD_toolkit.py $(DEVICE) --variant=$(DEVICE_VARIANT)
-C0_LOGGER           := $(SUDO) $(VENV_PYTHON) $(UTILITIES_DIR)/C0_debug_logger.py $(DEVICE) --variant=$(DEVICE_VARIANT)
+MICROSD_TOOLKIT     := $(SUDO) $(PYTHON) $(UTILITIES_DIR)/C0_microSD_toolkit.py -t '$(DEVICE)'
+SD_TOOLKIT          := $(SUDO) $(PYTHON) $(UTILITIES_DIR)/C0_SD_toolkit.py '$(DEVICE)' --variant=$(DEVICE_VARIANT)
+C0_LOGGER           := $(SUDO) $(PYTHON) $(UTILITIES_DIR)/C0_debug_logger.py '$(DEVICE)' --variant=$(DEVICE_VARIANT)
 
 # Enable Global "Exit on Error" for shell commands
 .SHELLFLAGS         := -ec
@@ -116,9 +126,14 @@ all: download
 
 print-%  : ; @echo $* = $($*)
 
-# Targets that need the Python environment. It is created, or its dependencies reinstalled, only when needed.
-VENV_TARGETS := flash-C0-microSD flash-C0-microSD-Plus flash-C0-SD switch start stop log log-once hex-dump uint-dump info run-all
+# Targets that run the toolkits. They need only the Python standard library,
+# so they run with $(PYTHON) and do not touch the venv.
+TOOLKIT_TARGETS := flash-C0-microSD flash-C0-microSD-Plus flash-C0-SD switch start stop log log-once hex-dump uint-dump info
 
+# Targets that need the Python environment. It is created, or its dependencies reinstalled, only when needed.
+VENV_TARGETS := run-all
+
+$(TOOLKIT_TARGETS): check-python
 $(VENV_TARGETS): venv
 
 # Search for the repo in Signaloid Cloud Developer Platform.
@@ -177,7 +192,7 @@ clean-all: clean
 flash: $(FLASH_TARGET)
 
 flash-C0-microSD: $(BINARY_FILE)
-	@echo "\n- Flashing: Signaloid C0-microSD [$(DEVICE)]"
+	@printf '\n- Flashing: Signaloid C0-microSD [%s]\n' '$(DEVICE)'
 	@file_size=$$(ls -l $(BINARY_FILE) | awk '{print $$5}'); \
 	if [ "$${file_size}" -gt 131072 ]; then \
 		echo "Error: Binary file is too large ($$file_size bytes)."; \
@@ -186,16 +201,16 @@ flash-C0-microSD: $(BINARY_FILE)
 	@$(MICROSD_TOOLKIT) -b $(BINARY_FILE) -U -p 128K
 
 flash-C0-microSD-Plus: $(BINARY_FILE) stop
-	@echo "\n- Flashing: Signaloid C0-microSD+ [$(DEVICE)]"
+	@printf '\n- Flashing: Signaloid C0-microSD+ [%s]\n' '$(DEVICE)'
 	@$(SD_TOOLKIT) flash-application $(BINARY_FILE)
 
 flash-C0-SD: $(BINARY_FILE) stop
-	@echo "\n- Flashing: Signaloid C0-SD [$(DEVICE)]"
+	@printf '\n- Flashing: Signaloid C0-SD [%s]\n' '$(DEVICE)'
 	@$(SD_TOOLKIT) flash-application $(BINARY_FILE)
 
 # Switch mode (Bootloader - Signaloid SoC) of the C0-microSD
 switch:
-	@echo "\n- Switching: Signaloid C0-microSD [$(DEVICE)]"
+	@printf '\n- Switching: Signaloid C0-microSD [%s]\n' '$(DEVICE)'
 	@$(MICROSD_TOOLKIT) -s
 
 # Start the Signaloid SoC core
@@ -240,33 +255,34 @@ venv: $(VENV_STAMP)
 
 $(VENV_PYTHON):
 	@$(call CHECK_PYTHON,$(PYTHON))
-	@echo "\n- Creating virtual environment in $(VENV_DIR)"
+	@printf '\n- Creating virtual environment in %s\n' '$(VENV_DIR)'
 	@$(PYTHON) -m venv $(VENV_DIR)
 
 $(VENV_STAMP): $(REQUIREMENTS) | $(VENV_PYTHON)
 	@$(call CHECK_PYTHON,$(VENV_PYTHON))
-	@echo "\n- Installing Python dependencies in $(VENV_DIR)"
+	@printf '\n- Installing Python dependencies in %s\n' '$(VENV_DIR)'
 	@$(VENV_PYTHON) -m pip install --upgrade pip
 	@$(VENV_PYTHON) -m pip install -r $(REQUIREMENTS)
 	@touch $@
 
+# Check the Python that runs the toolkits, with sudo when they use it
 check-python:
-	@$(call CHECK_PYTHON,$(PYTHON))
+	@$(call CHECK_PYTHON,$(strip $(SUDO) $(PYTHON)))
 
 # Delete the virtual environment (only the project's own one)
 clean-venv:
 	@if [ -d "$(INTERNAL_VENV)" ]; then $(RM) -rf "$(INTERNAL_VENV)"; echo "venv deleted!"; else echo "Nothing to do"; fi
 
-.PHONY: venv check-python $(VENV_TARGETS)
+.PHONY: venv check-python $(TOOLKIT_TARGETS) $(VENV_TARGETS)
 
 # Base command to run the host application
-RUN_CMD=$(SUDO) $(VENV_PYTHON) -u $(ROOT_DIR)/python-host-application/host_application.py --device-path $(DEVICE) --variant $(DEVICE_VARIANT)
+RUN_CMD=$(SUDO) $(VENV_PYTHON) -u $(ROOT_DIR)/python-host-application/host_application.py --device-path '$(DEVICE)' --variant $(DEVICE_VARIANT)
 
 SELECTED_RUN_CMD?=$(RUN_CMD)
 
 # Run multiple host application commands. Useful for testing.
 run-all:
-	@echo "\n- Running the host application"
+	@printf '\n- Running the host application\n'
 	$(SELECTED_RUN_CMD) FLIRAx5 "30050(50)"
 	$(SELECTED_RUN_CMD) FlussoFLS110 "0.03(2)" "293.5(5)" "273.25(25)" "422500(2500)" "402500(2500)"
 	$(SELECTED_RUN_CMD) NXPMPX4100A "2.5(2)" "5.1(3)"
@@ -278,7 +294,7 @@ run-all:
 	$(SELECTED_RUN_CMD) SensirionSHT4xI "2.5(2)" "2.5(2)" "5.1(3)"
 	$(SELECTED_RUN_CMD) TexasInstrumentsTMAG5253 "2.7(1)" "3.3(1)"
 	$(SELECTED_RUN_CMD) TexasInstrumentsTMCS112x "3.3(1)" "2.5(1)"
-	@echo "\n- Finished successfully"
+	@printf '\n- Finished successfully\n'
 
 # Iterations to use for benchmarking
 ITERATIONS ?= 20
@@ -288,5 +304,5 @@ RUN_BENCH_CMD=$(RUN_CMD) --benchmark --iterations "${ITERATIONS}" --skip-plottin
 
 # Benchmark application commands. Useful for testing.
 bench-all:
-	@echo "\n- Start benchmarking"
-	@$(MAKE) -e SELECTED_RUN_CMD="$(RUN_BENCH_CMD)" run-all
+	@printf '\n- Start benchmarking\n'
+	@$(MAKE) -e SELECTED_RUN_CMD='$$(RUN_BENCH_CMD)' run-all

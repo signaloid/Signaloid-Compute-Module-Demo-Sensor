@@ -1,0 +1,1 @@
+../../../submodules/Signaloid-Demo-Sensors-NXPMPXx6250AConversionRoutines/src/nxp-mpxx6250a-uxhw.c

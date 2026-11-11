@@ -102,57 +102,57 @@ INCLUDE_TexasInstrumentsTMCS112x    = 1
 
 
 ifeq ($(INCLUDE_FLIRAx5),1)
-SOURCES += conversionRoutines/FLIRAx5/kernel.c
+SOURCES += $(wildcard conversionRoutines/FLIRAx5/*.c)
 CFLAGS += -DINCLUDE_FLIRAx5
 endif
 
 ifeq ($(INCLUDE_FlussoFLS110),1)
-SOURCES += conversionRoutines/FlussoFLS110/kernel.c
+SOURCES += $(wildcard conversionRoutines/FlussoFLS110/*.c)
 CFLAGS += -DINCLUDE_FlussoFLS110
 endif
 
 ifeq ($(INCLUDE_NXPMPX4100A),1)
-SOURCES += conversionRoutines/NXPMPX4100A/kernel.c
+SOURCES += $(wildcard conversionRoutines/NXPMPX4100A/*.c)
 CFLAGS += -DINCLUDE_NXPMPX4100A
 endif
 
 ifeq ($(INCLUDE_NXPMPXx6250A),1)
-SOURCES += conversionRoutines/NXPMPXx6250A/kernel.c
+SOURCES += $(wildcard conversionRoutines/NXPMPXx6250A/*.c)
 CFLAGS += -DINCLUDE_NXPMPXx6250A
 endif
 
 ifeq ($(INCLUDE_SensirionSDP3x),1)
-SOURCES += conversionRoutines/SensirionSDP3x/kernel.c
+SOURCES += $(wildcard conversionRoutines/SensirionSDP3x/*.c)
 CFLAGS += -DINCLUDE_SensirionSDP3x
 endif
 
 ifeq ($(INCLUDE_SensirionSDP8xx),1)
-SOURCES += conversionRoutines/SensirionSDP8xx/kernel.c
+SOURCES += $(wildcard conversionRoutines/SensirionSDP8xx/*.c)
 CFLAGS += -DINCLUDE_SensirionSDP8xx
 endif
 
 ifeq ($(INCLUDE_SensirionSFM3100),1)
-SOURCES += conversionRoutines/SensirionSFM3100/kernel.c
+SOURCES += $(wildcard conversionRoutines/SensirionSFM3100/*.c)
 CFLAGS += -DINCLUDE_SensirionSFM3100
 endif
 
 ifeq ($(INCLUDE_SensirionSHT3xARP),1)
-SOURCES += conversionRoutines/SensirionSHT3xARP/kernel.c
+SOURCES += $(wildcard conversionRoutines/SensirionSHT3xARP/*.c)
 CFLAGS += -DINCLUDE_SensirionSHT3xARP
 endif
 
 ifeq ($(INCLUDE_SensirionSHT4xI),1)
-SOURCES += conversionRoutines/SensirionSHT4xI/kernel.c
+SOURCES += $(wildcard conversionRoutines/SensirionSHT4xI/*.c)
 CFLAGS += -DINCLUDE_SensirionSHT4xI
 endif
 
 ifeq ($(INCLUDE_TexasInstrumentsTMAG5253),1)
-SOURCES += conversionRoutines/TexasInstrumentsTMAG5253/kernel.c
+SOURCES += $(wildcard conversionRoutines/TexasInstrumentsTMAG5253/*.c)
 CFLAGS += -DINCLUDE_TexasInstrumentsTMAG5253
 endif
 
 ifeq ($(INCLUDE_TexasInstrumentsTMCS112x),1)
-SOURCES += conversionRoutines/TexasInstrumentsTMCS112x/kernel.c
+SOURCES += $(wildcard conversionRoutines/TexasInstrumentsTMCS112x/*.c)
 CFLAGS += -DINCLUDE_TexasInstrumentsTMCS112x
 endif
 

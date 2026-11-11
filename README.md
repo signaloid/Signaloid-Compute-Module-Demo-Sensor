@@ -409,6 +409,21 @@ defaults to 20.
 make bench-all ITERATIONS=100
 ```
 
+### Windows (Git Bash)
+
+The `Makefile` targets also run in Git Bash on Windows, with GNU `make`
+installed:
+
+- Open Git Bash as administrator. Raw disk access needs it, and there is no
+  `sudo`.
+- Set `DEVICE` to the physical drive of the compute module, e.g.
+  `make DEVICE=//./PhysicalDrive2 flash`. `Get-Disk` in PowerShell lists the
+  drive numbers.
+- The `Makefile` runs Python through the `py` launcher (`py -3`), which the
+  [python.org](https://www.python.org/downloads/windows/) installer provides.
+- The virtual environment's interpreter is `.venv/Scripts/python.exe`. Use it
+  instead of `sudo .venv/bin/python3` in the [example commands](#example-command).
+
 ## Adding a new conversion routine
 
 1. Add the routine sources under
