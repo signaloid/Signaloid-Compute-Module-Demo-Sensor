@@ -1,0 +1,1 @@
+../../../submodules/Signaloid-Demo-Sensors-TexasInstrumentsTMAG5253ConversionRoutines/src/tmag5253-uxhw.h

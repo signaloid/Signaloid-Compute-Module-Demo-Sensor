@@ -180,6 +180,11 @@ handleFLIRAx5(uint16_t iterationCount)
 {
 	double  inputVariables[kFLIRAx5InputVariableIndexMax];
 	double  outputVariables[kFLIRAx5OutputVariableIndexMax];
+	/*
+	 *	The host writes every input to `inputVariables`, so no input is
+	 *	overridden here.
+	 */
+	const FLIRAx5KernelParameters  parameters = {0};
 
 	C0HALSetStatusRegister(kSignaloidSoCStatusCalculating);
 	C0HALSetLed(true);
@@ -189,7 +194,7 @@ handleFLIRAx5(uint16_t iterationCount)
 	for (uint16_t iteration = 0; iteration < iterationCount; iteration++)
 	{
 		FLIRAx5_calculateOutput(
-			(double) NAN,
+			&parameters,
 			inputVariables,
 			outputVariables
 		);
