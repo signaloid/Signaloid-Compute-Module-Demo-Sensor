@@ -302,9 +302,7 @@ positional arguments:
                                 SensirionSFM3100,
                                 SensirionSHT3xARP,
                                 SensirionSHT4xI,
-                                SensirionSLS1500,
                                 TexasInstrumentsTMAG5253,
-                                TexasInstrumentsTMAG618x,
                                 TexasInstrumentsTMCS112x
                         }
 
