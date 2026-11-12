@@ -36,7 +36,9 @@ in the top-level [Makefile](../Makefile) to build, download, and flash it.
 `config.mk` sets the sources for the selected `DEVICE_TYPE` and the Signaloid
 Compute Module Utilities path, then includes the conversion routine per enabled
 `INCLUDE_<Sensor>` flag. Set a flag to `0` to leave that routine out of the
-build.
+build. For the C0-microSD, four routines are left out by default so that the
+build fits in its RAM; see
+[Selecting which sensors to include](../README.md#selecting-which-sensors-to-include).
 
 Add your own compiler flags through the `BUILD_FLAGS` variable, and add your
 sources and include paths on the `SOURCES` and `INC` variables respectively of
