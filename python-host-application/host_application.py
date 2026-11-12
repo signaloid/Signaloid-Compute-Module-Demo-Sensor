@@ -24,6 +24,7 @@
 
 import argparse
 import signal
+import sys
 import time
 from enum import IntEnum
 
@@ -309,6 +310,10 @@ def encode_command_register(command_id: int, iterations: int) -> int:
     return ((iterations - 1) & 0xFFFF) << 16 | (command_id & 0xFFFF)
 
 
+class InvalidCommandError(RuntimeError):
+    """The device returned the Invalid command status."""
+
+
 def run_and_measure_device(
     compute_module: SignaloidComputeModuleInterface,
     command_value: int,
@@ -335,7 +340,9 @@ def run_and_measure_device(
         if status == C0Status.Done:
             break
         if status == C0Status.InvalidCommand:
-            raise RuntimeError("Device returned 'Invalid command'.")
+            # Clear the command, so that the firmware waits for the next one.
+            send_command(Commands.CalculateNoCommand)
+            raise InvalidCommandError("Device returned 'Invalid command'.")
         if (
             status == C0Status.WaitingForCommand
             and time.perf_counter() - start_time > timeout
@@ -450,7 +457,14 @@ def main(explicit_args: list[str] | None = None):
     )
 
     compute_module.write_input_buffer(input_buffer)
-    device_time = run_and_measure_device(compute_module, command_value)
+    try:
+        device_time = run_and_measure_device(compute_module, command_value)
+    except InvalidCommandError:
+        sys.exit(
+            f"[Error] The firmware on the device was built without the "
+            f"{args.command} sensor (see INCLUDE_{args.command} in "
+            f"signaloid-soc-application/config.mk)."
+        )
     result_buffer = compute_module.read_output_buffer()
 
     if args.benchmark:
@@ -464,8 +478,10 @@ def main(explicit_args: list[str] | None = None):
         print(f"Process time: {device_time*1000:.3f} ms")
 
     # Plot results
+    # Prefix the sensor, so that plots saved as <label>.png do not overwrite
+    # those of another sensor with the same output names.
     value_labels = [
-        output_variable.name
+        f"{args.command}-{output_variable.name}"
         for output_variable in sensor_class.OutputVariableIndex
     ]
 

@@ -87,13 +87,26 @@ INC_DIRS    += .
 
 # Additional sensor conversion routine sources
 
-# Use these flags to enable or disable sensor conversion routines
-INCLUDE_FLIRAx5                     = 1
-INCLUDE_FlussoFLS110                = 1
+# Use these flags to enable (1) or disable (0) sensor conversion routines.
+#
+# The C0-microSD runs the application from its 128 KiB of RAM, which cannot
+# hold all of them. So its build leaves out the four sensors set to
+# $(INCLUDE_UNLESS_C0_MICROSD) below. To include one of them, set its flag to 1
+# and set another sensor's flag to $(INCLUDE_UNLESS_C0_MICROSD), so that only
+# the C0-microSD build leaves it out. If you change which sensors the
+# C0-microSD build leaves out, update the `run-all` target in ../Makefile too.
+ifeq ($(DEVICE_TYPE),SIGNALOID_C0_MICROSD)
+        INCLUDE_UNLESS_C0_MICROSD   = 0
+else
+        INCLUDE_UNLESS_C0_MICROSD   = 1
+endif
+
+INCLUDE_FLIRAx5                     = $(INCLUDE_UNLESS_C0_MICROSD)
+INCLUDE_FlussoFLS110                = $(INCLUDE_UNLESS_C0_MICROSD)
 INCLUDE_NXPMPX4100A                 = 1
 INCLUDE_NXPMPXx6250A                = 1
-INCLUDE_SensirionSDP3x              = 1
-INCLUDE_SensirionSDP8xx             = 1
+INCLUDE_SensirionSDP3x              = $(INCLUDE_UNLESS_C0_MICROSD)
+INCLUDE_SensirionSDP8xx             = $(INCLUDE_UNLESS_C0_MICROSD)
 INCLUDE_SensirionSFM3100            = 1
 INCLUDE_SensirionSHT3xARP           = 1
 INCLUDE_SensirionSHT4xI             = 1

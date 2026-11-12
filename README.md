@@ -61,6 +61,10 @@ This demo currently supports:
 - **Signaloid C0-microSD+**
 - **Signaloid C0-SD**
 
+The C0-microSD build includes 7 of the 11 sensors, because its 128 KiB of RAM
+cannot hold all of them. See
+[Selecting which sensors to include](#selecting-which-sensors-to-include).
+
 ## Repository layout
 
 - `signaloid-soc-application/`: A C application that runs on the Signaloid
@@ -145,7 +149,9 @@ git submodule update --remote --recursive
     - `SIGNALOID_C0_SD`.
 3. Configure the `CORE_ID` variable matching your compute module type. This
    controls the precision and correlation tracking for your application.
-   Default: `C0-*-N` core.
+   Default: `C0-*-N` core. Every `make build` uses the selected core, and
+   `make update` also saves it as the default core of the connected
+   repository.
 
 > [!WARNING]
 >
@@ -166,7 +172,9 @@ Compute Engine, and download the resulting `main.bin` firmware. The build inputs
 
 The default `make` target connects the repository (first run only), starts a
 cloud build, waits for it to finish, and downloads the firmware into
-`signaloid-soc-application/<build-id>.main.bin`. To start a build run:
+`signaloid-soc-application/<build-id>.main.bin`. The build ID is kept in
+`.build_id-<core-id>`, one file per core, so `make flash` never reuses a
+binary built for another compute module. To start a build run:
 
 ```sh
 make
@@ -198,7 +206,9 @@ commands:
 make run-all
 ```
 
-To run a single sensor, see [Example command](#example-command) below.
+With `DEVICE_TYPE=SIGNALOID_C0_MICROSD`, `make run-all` skips the sensors that
+the C0-microSD build leaves out. To run a single sensor, see
+[Example command](#example-command) below.
 
 ## Host application
 
@@ -358,8 +368,9 @@ in [main.c](signaloid-soc-application/main.c).
 
 **Output buffer.** The firmware packs the resulting distributions using
 `UxHwFloatDistributionToByteArray` into the output buffer. The host reads the
-output buffer, parses the results, plots the distributions, and prints their
-particle values.
+output buffer, parses the results, prints the particle value, mean and
+variance of each distribution, and plots them. Without a display, each plot is
+saved as a PNG file in the current directory.
 
 **Status register.** The firmware sets a status register through the run:
 `WaitingForCommand`, `Calculating`, `Done`, or `InvalidCommand`. The host polls
@@ -367,7 +378,8 @@ this register to know when a result is ready.
 
 ### Selecting which sensors to include
 
-The firmware includes all conversion routines by default. To reduce binary size
+On the C0-microSD+ and C0-SD, the firmware includes all conversion routines by
+default. To reduce binary size
 or build only the sensors you need, edit the `INCLUDE_<Sensor>` flags in
 [signaloid-soc-application/config.mk](signaloid-soc-application/config.mk). Set
 a flag to `0` to exclude a routine:
@@ -377,25 +389,37 @@ INCLUDE_FLIRAx5 = 1
 INCLUDE_FlussoFLS110 = 0
 ```
 
+The C0-microSD runs the firmware from its 128 KiB of RAM, which cannot hold all
+the routines. So for `DEVICE_TYPE=SIGNALOID_C0_MICROSD`, `config.mk` leaves out
+`FLIRAx5`, `FlussoFLS110`, `SensirionSDP3x` and `SensirionSDP8xx` by default:
+their flags are set to `$(INCLUDE_UNLESS_C0_MICROSD)`, which is `0` on the
+C0-microSD and `1` on the other compute modules. To swap sensors on the
+C0-microSD, set the flag of a left-out sensor to `1` and the flag of another
+sensor to `$(INCLUDE_UNLESS_C0_MICROSD)`, so the binary still fits and the
+other compute modules keep both sensors. Then update the `run-all` target of
+the top-level `Makefile`, which skips the left-out sensors on the C0-microSD.
+If you run a sensor that the firmware was built without, the host application
+stops with an error message.
+
 ## Makefile targets
 
 | Target           | Description                                                                                                           |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `make`           | Connect the repository, build in the cloud, and download the firmware binary.                                         |
 | `make connect`   | Connect this repository to the Signaloid Cloud Developer Platform.                                                    |
-| `make update`    | Updates this repository to the latest commit on the already connected repo on the Signaloid Cloud Developer Platform. |
-| `make build`     | Trigger a cloud build and wait for it to complete.                                                                    |
+| `make update`    | Update the connected repository to the latest commit, and save the selected core as its default.                      |
+| `make build`     | Trigger a cloud build with the selected core and wait for it to complete. On failure, print the build output.         |
 | `make download`  | Download the firmware binary.                                                                                         |
 | `make flash`     | Flash the downloaded binary to the module (selects the correct flasher from `DEVICE_TYPE`).                           |
-| `make run-all`   | Run every sensor with default inputs. Creates the needed Python virtual environment if needed.                        |
-| `make run-all`   | Run every sensor with default inputs in benchmark mode. Creates the needed Python virtual environment if needed.      |
+| `make run-all`   | Run every included sensor with default inputs. Creates the needed Python virtual environment if needed.               |
+| `make bench-all` | Run every included sensor with default inputs in benchmark mode. Creates the Python virtual environment if needed.    |
 | `make start`     | Start the Signaloid SoC core (on supported compute modules).                                                          |
 | `make stop`      | Stop the Signaloid SoC core (on supported compute modules).                                                           |
 | `make reset`     | Reset the Signaloid SoC core (on supported compute modules).                                                          |
 | `make log`       | Stream the device debug log.                                                                                          |
 | `make venv`      | Create the virtual environment needed for running the host application.                                               |
-| `make clean`     | Remove the downloaded binary and build id.                                                                            |
-| `make clean-all` | Also remove the repository id and cached builds.                                                                      |
+| `make clean`     | Remove the downloaded binary and build id of the selected core.                                                       |
+| `make clean-all` | Remove the repository id, and the build ids and binaries of every core.                                               |
 
 ### Benchmarking
 
@@ -441,7 +465,7 @@ installed:
 - [Signaloid Compute Modules Documentation](https://docs.signaloid.io/docs/compute-modules/)
 - [Signaloid Compute Module Utilities](https://github.com/signaloid/Signaloid-Compute-Module-Utilities)
 - [Signaloid Technology Explainers](https://signaloid.com/technology-explainers)
-- [Signaloid Python](https://github.com/signaloid/Signaloid-Python)
+- [Signaloid Data Toolkit](https://github.com/signaloid/signaloid-data-toolkit)
 
 ## License
 

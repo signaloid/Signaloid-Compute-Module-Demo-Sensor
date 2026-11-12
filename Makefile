@@ -108,16 +108,18 @@ BUILD_DIR           := signaloid-soc-application
 REPO_ID_FILE        := $(ROOT_DIR)/.repo_id
 REPO_ID=$(shell cat $(REPO_ID_FILE) 2> /dev/null)
 
-BUILD_ID_FILE       := $(ROOT_DIR)/.build_id
+# One build ID per core, so a build for one module is never flashed to another.
+BUILD_ID_FILE       := $(ROOT_DIR)/.build_id-$(CORE_ID)
 BUILD_ID=$(shell cat $(BUILD_ID_FILE) 2> /dev/null)
 
 BINARY_FILENAME      = $(BUILD_ID).main.bin
 BINARY_FILE          = $(ROOT_DIR)/$(BUILD_DIR)/$(BINARY_FILENAME)
 
-# Toolkits
-MICROSD_TOOLKIT     := $(SUDO) $(PYTHON) $(UTILITIES_DIR)/C0_microSD_toolkit.py -t '$(DEVICE)'
-SD_TOOLKIT          := $(SUDO) $(PYTHON) $(UTILITIES_DIR)/C0_SD_toolkit.py '$(DEVICE)' --variant=$(DEVICE_VARIANT)
-C0_LOGGER           := $(SUDO) $(PYTHON) $(UTILITIES_DIR)/C0_debug_logger.py '$(DEVICE)' --variant=$(DEVICE_VARIANT)
+# Toolkits. `-B` stops Python, which may run under sudo, from writing
+# root-owned `__pycache__` folders.
+MICROSD_TOOLKIT     := $(SUDO) $(PYTHON) -B $(UTILITIES_DIR)/C0_microSD_toolkit.py -t '$(DEVICE)'
+SD_TOOLKIT          := $(SUDO) $(PYTHON) -B $(UTILITIES_DIR)/C0_SD_toolkit.py '$(DEVICE)' --variant=$(DEVICE_VARIANT)
+C0_LOGGER           := $(SUDO) $(PYTHON) -B $(UTILITIES_DIR)/C0_debug_logger.py '$(DEVICE)' --variant=$(DEVICE_VARIANT)
 
 # Enable Global "Exit on Error" for shell commands
 .SHELLFLAGS         := -ec
@@ -164,13 +166,16 @@ update: $(REPO_ID_FILE)
 		--dir $(BUILD_DIR) \
 		--core-id $(CORE_ID))
 
-# Create a build for the repo
+# Create a build for the repo, with the selected core. If the build fails,
+# print its output (the compiler and linker log) and fail.
 build $(BUILD_ID_FILE): $(REPO_ID_FILE)
-	@RESPONSE=$$($(SIGNALOID_CLI) builds create:repo --repo-id $(REPO_ID)); \
+	@RESPONSE=$$($(SIGNALOID_CLI) builds create:repo --repo-id $(REPO_ID) --core-id $(CORE_ID)); \
 	BUILD_ID=$$(echo $$RESPONSE | jq -r '.BuildID'); \
 	echo $$BUILD_ID > $(BUILD_ID_FILE); \
-	$(SIGNALOID_CLI) builds watch --build-id $$BUILD_ID; \
-	$(SIGNALOID_CLI) builds output --build-id $$BUILD_ID;
+	STATUS=0; \
+	$(SIGNALOID_CLI) builds watch --build-id $$BUILD_ID || STATUS=$$?; \
+	$(SIGNALOID_CLI) builds output --build-id $$BUILD_ID; \
+	exit $$STATUS
 
 # Download the build binary
 download $(BINARY_FILE): $(BUILD_ID_FILE)
@@ -184,8 +189,9 @@ clean:
 	@$(RM) $(BINARY_FILE)
 	@$(RM) $(BUILD_ID_FILE)
 
-# Delete the build id, its binary, and the connected repo id
+# Delete the build ids and binaries of every core, and the connected repo id
 clean-all: clean
+	@$(RM) $(ROOT_DIR)/.build_id* $(ROOT_DIR)/$(BUILD_DIR)/*.main.bin
 	@$(RM) $(REPO_ID_FILE)
 
 # Flashing targets
@@ -244,10 +250,11 @@ uint-dump:
 	@echo "- Device log uint-dump:"
 	$(C0_LOGGER) --uint-dump --one-shot --no-clear;
 
-# Print the compute module info
+# Print the compute module info. The core is stopped for the read, then
+# restarted.
 info:
 	@echo "- Device info:"
-	$(SD_TOOLKIT) info
+	$(SD_TOOLKIT) info --stop-core
 
 # Create the virtual environment (if needed) and install the host
 # application dependencies (only when requirements.txt changes)
@@ -276,19 +283,26 @@ clean-venv:
 .PHONY: venv check-python $(TOOLKIT_TARGETS) $(VENV_TARGETS)
 
 # Base command to run the host application
-RUN_CMD=$(SUDO) $(VENV_PYTHON) -u $(ROOT_DIR)/python-host-application/host_application.py --device-path '$(DEVICE)' --variant $(DEVICE_VARIANT)
+RUN_CMD=$(SUDO) $(VENV_PYTHON) -u -B $(ROOT_DIR)/python-host-application/host_application.py --device-path '$(DEVICE)' --variant $(DEVICE_VARIANT)
 
 SELECTED_RUN_CMD?=$(RUN_CMD)
 
 # Run multiple host application commands. Useful for testing.
+# The C0-microSD build leaves out FLIRAx5, FlussoFLS110, SensirionSDP3x and
+# SensirionSDP8xx to fit its 128 KiB of RAM, so they are skipped there. Keep
+# this in sync with the INCLUDE_* defaults in signaloid-soc-application/config.mk.
 run-all:
 	@printf '\n- Running the host application\n'
+ifneq ($(DEVICE_TYPE),SIGNALOID_C0_MICROSD)
 	$(SELECTED_RUN_CMD) FLIRAx5 "30050(50)"
 	$(SELECTED_RUN_CMD) FlussoFLS110 "0.03(2)" "293.5(5)" "273.25(25)" "422500(2500)" "402500(2500)"
+endif
 	$(SELECTED_RUN_CMD) NXPMPX4100A "2.5(2)" "5.1(3)"
 	$(SELECTED_RUN_CMD) NXPMPXx6250A "2.5(2)" "5.1(3)"
+ifneq ($(DEVICE_TYPE),SIGNALOID_C0_MICROSD)
 	$(SELECTED_RUN_CMD) SensirionSDP3x "1.5(2)" "3.6(3)"
 	$(SELECTED_RUN_CMD) SensirionSDP8xx "1.5(2)" "3.6(3)"
+endif
 	$(SELECTED_RUN_CMD) SensirionSFM3100 "0.75(5)"
 	$(SELECTED_RUN_CMD) SensirionSHT3xARP "2.5(2)" "2.5(2)" "5.1(3)"
 	$(SELECTED_RUN_CMD) SensirionSHT4xI "2.5(2)" "2.5(2)" "5.1(3)"
